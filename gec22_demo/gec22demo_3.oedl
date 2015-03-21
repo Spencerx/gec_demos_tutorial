@@ -1,0 +1,220 @@
+# Load the external OMF6 Application Definition that we need
+loadOEDL('https://raw.githubusercontent.com/mytestbed/gec_demos_tutorial/master/gec22_demo/vlc-oml.oedl')
+loadOEDL('https://raw.githubusercontent.com/mytestbed/gec_demos_tutorial/master/gec22_demo/shaper.oedl')
+loadOEDL('https://raw.githubusercontent.com/mytestbed/gec_demos_tutorial/master/gec22_demo/web_redirector/redirector.oedl')
+loadOEDL('https://raw.githubusercontent.com/mytestbed/gec_demos_tutorial/master/gec22_demo/lighttpd.oedl')
+
+# This should be the Address to the Web Redirector!
+defProperty('redirector_address', '192.1.242.166', 'URL for the video to play')
+defProperty('redirector_port', '9292', 'URL for the video to play')
+defProperty('redirector_config', 'default', 'Configuration of Redirection')
+defProperty('sampling', 5, 'Measurement sampling frequency (>1)')
+
+# The YAML Configuration for the Web Redirector
+# Note: could be turned into an experiment property if needed...
+# NO CIDR NOTATION SUPPORT!!!
+# Convention:
+# - net_A_B_C_D for the network IP address A.B.C.D
+# - net_A_B_C for the network IP address A.B.C.0
+# - net_A_B for the network IP address A.B
+# - net_A for the network IP address A
+# - default for everything else
+#
+redirect_day1 =
+<<-TEXT
+"default:
+  status: 303
+  location: 'http://192.86.139.71/video/bunny_2s/BigBuckBunny_gec22.mpd'"
+TEXT
+
+redirect_day2 =
+<<-TEXT
+"default:
+  status: 303
+  location: 'http://193.190.127.246/video/bunny_2s/BigBuckBunny_gec22.mpd'"
+TEXT
+
+# Build the lists of resources that we will use,
+# e.g. 'a1.af38.tut' or 'b3.cs25.tut' or etc...
+#
+suffix_region1 = ['af38','xo43','eh72','ga82','vg59','zw28' ] #,'qa95'] # GENI US
+suffix_region2 = ['av52','cs25','vb50','ip76','sm54','qf63' ] #,'ei40'] # EU
+
+all_player_region1 = suffix_region1.map { |s| ('a'..'c').map { |i| (1..4).map { |j| "#{i}#{j}.#{s}.tut" } } }.flatten
+all_player_region2 = suffix_region2.map { |s| ('a'..'c').map { |i| (1..4).map { |j| "#{i}#{j}.#{s}.tut" } } }.flatten
+all_players = all_player_region1 + all_player_region2
+
+some_player_region1 = (1..2).map { |s| ('a'..'c').map { |i| (1..4).map { |j| "#{i}#{j}.#{suffix_region1[s]}.tut" } } }.flatten
+some_player_region2 = (1..2).map { |s| ('a'..'c').map { |i| (1..4).map { |j| "#{i}#{j}.#{suffix_region2[s]}.tut" } } }.flatten
+
+redirect_entity = 'a1.cq64.tut'
+content_prodivers = [ 'c1.ty59.tut', 'c1.ft68.tut' ]
+
+defGroup("all_player_group1", *all_player_region1) do |group|
+  group.addApplication('vlc') do |app|
+    app.setProperty('input', "http://#{prop.redirector_address}:#{prop.redirector_port}")
+    app.measure('dashRateAdaptation', :samples => prop.sampling.to_i)
+  end
+end
+
+defGroup("all_player_group2", *all_player_region2) do |group|
+  group.addApplication('vlc') do |app|
+    app.setProperty('input', "http://#{prop.redirector_address}:#{prop.redirector_port}")
+    app.measure('dashRateAdaptation', :samples => prop.sampling.to_i)
+  end
+end
+
+defGroup("some_player_group1", *some_player_region1) do |group|
+  group.addApplication('vlc') do |app|
+    app.setProperty('input', "http://#{prop.redirector_address}:#{prop.redirector_port}")
+    app.measure('dashRateAdaptation', :samples => prop.sampling.to_i)
+  end
+end
+
+defGroup("some_player_group2", *some_player_region2) do |group|
+  group.addApplication('vlc') do |app|
+    app.setProperty('input', "http://#{prop.redirector_address}:#{prop.redirector_port}")
+    app.measure('dashRateAdaptation', :samples => prop.sampling.to_i)
+  end
+end
+
+defGroup('redirector_group', redirect_entity) do |group|
+  group.addApplication('web_redirector_config') do |app|
+    app.setProperty('config', prop.redirector_config)
+  end
+  group.addApplication("web_redirector") do |app|
+    app.setProperty('host', prop.redirector_address)
+  end
+end
+
+defGroup('provider_group', *content_prodivers) do |group|
+  group.addApplication('lighttpd')
+end
+
+defGroup('all_players', *all_players) do |group|
+  group.addApplication('shaper')
+  group.addApplication('kill_vlc')
+end
+
+onEvent(:ALL_UP) do
+
+  day_duration = 60 # [s]
+  interval_between_days = 10 # [s]
+  t0 = 20 # [s]
+  t1 = t0 + 20 # [s]
+  t2 = t1 + day_duration
+  t3 = t2 + interval_between_days # [s]
+  t4 = t3 + day_duration # [s]
+  t5 = t4 + interval_between_days # [s]
+  t6 = t5 + day_duration # [s]
+
+  after t0 do
+    info(" ------ Start Traffic Shapping and Content Providers")
+    group('all_players').startApplication('shaper_cxt_0')
+    group('provider_group').startApplications
+  end
+
+  after t1 do
+    prop.redirector_config = redirect_day1
+    info(" ------ Day 1: Configure Web Redirector")
+    group('redirector_group').startApplication('web_redirector_config_cxt_0')
+    after 5 do
+      info(" ------ Day 1: Start Web Redirector")
+      group('redirector_group').startApplication('web_redirector_cxt_0')
+    end
+    after 10 do
+      info(" ------ Day 1: Start All Player Region 1 + Some Player Region 2")
+      group('all_player_group1').startApplications
+      group('some_player_group2').startApplications
+    end
+  end
+  after t2 do
+    info(" ------ Day 1: Stop All Player Region 1 + Some Player Region 2")
+    group('all_players').startApplication('kill_vlc_cxt_0')
+    group('redirector_group').stopApplications
+  end
+
+  after t3 do
+    prop.redirector_config = redirect_day2
+    info(" ------ Day 2: Configure Web Redirector")
+    group('redirector_group').startApplication('web_redirector_config_cxt_0')
+    after 5 do
+      info(" ------ Day 2: Start Web Redirector")
+      group('redirector_group').startApplication('web_redirector_cxt_0')
+    end
+    after 10 do
+      info(" ------ Day 2: Start All Player Region 2 + Some Player Region 1")
+      group('all_player_group2').startApplications
+      group('some_player_group1').startApplications
+    end
+  end
+  after t4 do
+    info(" ------ Day 2: Stop All Player Region 2 + Some Player Region 1")
+    group('all_players').startApplication('kill_vlc_cxt_0')
+    group('redirector_group').stopApplications
+  end
+
+  after t5 do
+    prop.redirector_config = redirect_day1
+    info(" ------ Day 3: Configure Web Redirector")
+    group('redirector_group').startApplication('web_redirector_config_cxt_0')
+    after 5 do
+      info(" ------ Day 3: Start Web Redirector")
+      group('redirector_group').startApplication('web_redirector_cxt_0')
+    end
+    after 10 do
+      info(" ------ Day 3: Start All Player Region 1 + Some Player Region 2")
+      group('all_player_group1').startApplications
+      group('some_player_group2').startApplications
+    end
+  end
+
+  after t6 do
+    info(" ------ Day 3: Stop All Player Region 2 + Some Player Region 1")
+    group('redirector_group').stopApplications
+    group('provider_group').stopApplications
+    group('all_players').startApplication('kill_vlc_cxt_0')
+    after 30 do
+      Experiment.done
+    end
+  end
+
+end
+
+columns = [:oml_ts_client, :oml_sender_id, :empiricalRate_bps_avg, :buffer_percent_avg, :chosenRate_bps_max ]
+
+defGraph 'DashRate1' do |g|
+  g.ms('dashRateAdaptation').select { columns }
+  g.caption "DASH Selected Rate"
+  g.type 'line_chart3'
+  g.mapping :x_axis => :oml_ts_client, :y_axis => :chosenRate_bps_max, :group_by => :oml_sender_id
+  g.xaxis :legend => 'time [s]'
+  g.yaxis :legend => 'DASH Selected Rate [b]', :ticks => {:format => 's'}
+end
+
+defGraph 'DashRate2' do |g|
+  g.ms('dashRateAdaptation').select { columns }
+  g.caption "DASH Buffer Percentage"
+  g.type 'line_chart3'
+  g.mapping :x_axis => :oml_ts_client, :y_axis => :buffer_percent_avg, :group_by => :oml_sender_id
+  g.xaxis :legend => 'time [s]'
+  g.yaxis :legend => 'DASH Buffer Percentage [%]', :ticks => {:format => 's'}
+end
+
+defGraph 'DashRate3' do |g|
+  g.ms('dashRateAdaptation').select { columns }
+  g.caption "DASH Selected Rate Distribution"
+  g.type 'stacked_area_chart3'
+  g.mapping :x_axis => :oml_ts_client, :y_axis => :chosenRate_bps_max
+  g.xaxis :legend => 'time [s]'
+  g.yaxis :legend => 'DASH Selected Rate [%]', :ticks => {:format => 's'}
+end
+
+defGraph 'DashRate4' do |g|
+  g.ms('dashRateAdaptation').select { columns }
+  g.caption "DASH Measured Rate"
+  g.type 'line_chart3'
+  g.mapping :x_axis => :oml_ts_client, :y_axis => :empiricalRate_bps_avg, :group_by => :oml_sender_id
+  g.xaxis :legend => 'time [s]'
+  g.yaxis :legend => 'DASH Measured Rate [b]', :ticks => {:format => 's'}
+end
