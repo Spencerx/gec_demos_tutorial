@@ -1,0 +1,16 @@
+locations = {
+  :af38 => { :lat => 42.389758, :long => -71.147593, :host => 'pc5.instageni.gpolab.bbn.com'},
+  :xo43 => { :lat => 33.775618, :long => -84.396285, :host => 'pc5.instageni.rnoc.gatech.edu'},
+  :eh72 => { :lat => 40.101952, :long => -88.227162, :host => 'pc1.instageni.illinois.edu '},
+  :ga82 => { :lat => 38.030651, :long => -84.503970, :host => 'pc1.pks2.sdn.uky.edu'},
+  :vg59 => { :lat => 40.343989, :long => -74.651448, :host => 'pc1.instageni.cs.princeton.edu'},
+  :zw28 => { :lat => 40.478671, :long => -74.431789, :host => 'pc3.instageni.rutgers.edu'},
+  :ty59 => { :lat => 40.694074, :long => -73.986932, :host => 'pcvm3-17.genirack.nyu.edu'},
+  :av52 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm01-11.wall2.ilabt.iminds.be'},
+  :cs25 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm06-12.wall2.ilabt.iminds.be'},
+  :vb50 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm01-12.wall2.ilabt.iminds.be'},
+  :ip76 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm06-14.wall2.ilabt.iminds.be'},
+  :sm54 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm06-15.wall2.ilabt.iminds.be'},
+  :qf63 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm06-16.wall2.ilabt.iminds.be'},
+  :ft68 => { :lat => 51.036290, :long => 3.734855, :host => 'n091-vm06-17.wall2.ilabt.iminds.be'}
+}
